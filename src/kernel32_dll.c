@@ -35,10 +35,12 @@ const w32u8_pair_t kernel32_pairs[] = {
 	{"MoveFileWithProgressA", MoveFileWithProgressU},
 	{"MultiByteToWideChar", MultiByteToWideCharU},
 	{"OpenFileMappingA", OpenFileMappingU},
+	{"ReadFile", ReadFileU},
 	{"RemoveDirectoryA", RemoveDirectoryU},
 	{"SetCurrentDirectoryA", SetCurrentDirectoryU},
 	{"SetEnvironmentVariableA", SetEnvironmentVariableU},
 	{"WideCharToMultiByte", WideCharToMultiByteU},
+	{"WriteFile", WriteFileU},
 	{"WritePrivateProfileStringA", WritePrivateProfileStringU},
 	{ NULL }
 };
@@ -172,7 +174,10 @@ BOOL WINAPI CreateDirectoryU(
 
 	// no, this isn't optimized away
 	lpPathName_w_len = w32u8_wcslen(lpPathName_w);
-	for(i = 0; i < lpPathName_w_len; i++) {
+	// If the last character is a \\ or a /, the directory will be created
+	// by the final CreateDirectory, and we don't want to create it here.
+	// So we don't check for the last character.
+	for(i = 0; i < lpPathName_w_len - 1; i++) {
 		if(lpPathName_w[i] == L'\\' || lpPathName_w[i] == L'/') {
 			wchar_t old_c = lpPathName_w[i + 1];
 			lpPathName_w[i + 1] = L'\0';
@@ -967,6 +972,38 @@ BOOL WINAPI WritePrivateProfileStringU(
 	INI_MACRO_EXPAND(WCHAR_T_FREE);
 	WCHAR_T_CONV(lpString);
 	return ret;
+}
+
+BOOL WINAPI ReadFileU(
+	HANDLE hFile,
+	LPVOID lpBuffer,
+	DWORD nNumberOfBytesToRead,
+	LPDWORD lpNumberOfBytesRead,
+	LPOVERLAPPED lpOverlapped
+)
+{
+	DWORD temp;
+	if (!lpNumberOfBytesRead && !lpOverlapped) {
+		lpNumberOfBytesRead = &temp;
+	}
+	return ReadFile(hFile, lpBuffer, nNumberOfBytesToRead,
+		lpNumberOfBytesRead, lpOverlapped);
+}
+
+BOOL WINAPI WriteFileU(
+	HANDLE hFile,
+	LPCVOID lpBuffer,
+	DWORD nNumberOfBytesToWrite,
+	LPDWORD lpNumberOfBytesWritten,
+	LPOVERLAPPED lpOverlapped
+)
+{
+	DWORD temp;
+	if (!lpNumberOfBytesWritten && !lpOverlapped) {
+		lpNumberOfBytesWritten = &temp;
+	}
+	return WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite,
+		lpNumberOfBytesWritten, lpOverlapped);
 }
 
 // Cleanup
